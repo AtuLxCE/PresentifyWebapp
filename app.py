@@ -103,6 +103,39 @@ async def get_data_fromI_url(arxiv_url: str):
             'conclusions':presentation.conclusions
             }
 
+MAX_FILE_SIZE = 1024 * 1024 * 12  # 12MB 
+@app.post('/bidhan')
+async def bidhan(file: UploadFile = File(...)):
+    if file.size > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File is too large")
+    pdf_bytes = await file.read()
+
+    # Optionally save the PDF temporarily
+    with open('temp_pdf.pdf', 'wb') as f:
+        f.write(pdf_bytes)
+
+    extracted_text = clean_text(read_pdf('temp_pdf.pdf'))  # Replace with your program's function
+    pdf_title = pdftitle.get_title_from_file('temp_pdf.pdf')
+    author = pdfplumber.open('temp_pdf.pdf').metadata['Author']
+    df = gemini_summarize(extracted_text)
+    try:
+        presentation.title = pdf_title
+        presentation.author = author
+        presentation.introduction = df['introduction'][0]
+        presentation.literature_review = df['literature review'][0]
+        presentation.methodology = df['methodology'][0]
+        presentation.results = df['results'][0]
+        presentation.conclusions = df['conclusion'][0]
+    except:
+        return {'error':'couldnt extract data'}
+        
+    return {'title': presentation.title, 'author': presentation.author,
+            'introduction':presentation.introduction,
+            'literature_review':presentation.literature_review,
+            'methodology':presentation.methodology,
+            'results':presentation.results,
+            'conclusions':presentation.conclusions
+            }
     
 
 
