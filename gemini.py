@@ -42,19 +42,19 @@ def gemini_summarize(textdata):
                 )
             except:
                 print("Error Occured while extracting using Gemini")
-                dict={}
-            dict= json.loads(response.text)
-            df =  pd.DataFrame(dict, index=[0])
-            for column in df.columns:
-                df[column] = df[column].astype(str)
+            #     dict={}
+            # dict= json.loads(response.text)
+            # df =  pd.DataFrame(dict, index=[0])
+            # for column in df.columns:
+            #     df[column] = df[column].astype(str)
 
-            for column in df.columns:
-                try:
-                    matches = find_match(column)
-                except:
-                    df.drop(column,axis=1)
-                df =df.rename(columns={column:matches})
-            df = df.groupby(level=0, axis=1).apply(lambda x: x.apply(sjoin, axis=1))
-            return df
+            # for column in df.columns:
+            #     try:
+            #         matches = find_match(column)
+            #     except:
+            #         df.drop(column,axis=1)
+            #     df =df.rename(columns={column:matches})
+            # df = df.groupby(level=0, axis=1).apply(lambda x: x.apply(sjoin, axis=1))
+            return response.text
             break
                 

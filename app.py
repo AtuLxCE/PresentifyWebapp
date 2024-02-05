@@ -117,25 +117,26 @@ async def bidhan(file: UploadFile = File(...)):
     extracted_text = clean_text(read_pdf('temp_pdf.pdf'))  # Replace with your program's function
     pdf_title = pdftitle.get_title_from_file('temp_pdf.pdf')
     author = pdfplumber.open('temp_pdf.pdf').metadata['Author']
-    df = gemini_summarize(extracted_text)
-    try:
-        presentation.title = pdf_title
-        presentation.author = author
-        presentation.introduction = df['introduction'][0]
-        presentation.literature_review = df['literature review'][0]
-        presentation.methodology = df['methodology'][0]
-        presentation.results = df['results'][0]
-        presentation.conclusions = df['conclusion'][0]
-    except:
-        return {'error':'couldnt extract data'}
+    text = gemini_summarize(extracted_text)
+    return text
+    # try:
+    #     presentation.title = pdf_title
+    #     presentation.author = author
+    #     presentation.introduction = df['introduction'][0]
+    #     presentation.literature_review = df['literature review'][0]
+    #     presentation.methodology = df['methodology'][0]
+    #     presentation.results = df['results'][0]
+    #     presentation.conclusions = df['conclusion'][0]
+    # except:
+    #     return {'error':'couldnt extract data'}
         
-    return {'title': presentation.title, 'author': presentation.author,
-            'introduction':presentation.introduction,
-            'literature_review':presentation.literature_review,
-            'methodology':presentation.methodology,
-            'results':presentation.results,
-            'conclusions':presentation.conclusions
-            }
+    # return {'title': presentation.title, 'author': presentation.author,
+    #         'introduction':presentation.introduction,
+    #         'literature_review':presentation.literature_review,
+    #         'methodology':presentation.methodology,
+    #         'results':presentation.results,
+    #         'conclusions':presentation.conclusions
+    #         }
     
 
 
