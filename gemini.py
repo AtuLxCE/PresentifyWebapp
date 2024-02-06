@@ -3,14 +3,14 @@ import json, os
 import pandas as pd
 import difflib
 # gemini
-
+# response = None
 title_list = ['introduction','literature review','methodology','results','conclusion']
 def find_match(column_name):
   return difflib.get_close_matches(column_name, title_list)[0]
 def sjoin(x): return ';'.join(x[x.notnull()].astype(str))
 
 def gemini_summarize(textdata):
-    API_KEY = '' #add key here
+    API_KEY = 'AIzaSyAfW_f2Nc7Rs21GY-za9Nmq_syEFGDAU04' #add key here
     genai.configure(api_key= API_KEY)
 
     model = genai.GenerativeModel('gemini-pro')
@@ -40,6 +40,7 @@ def gemini_summarize(textdata):
                 '''
                 +" Here is the text:\n" + f'{textdata}'
                 )
+                break
             except:
                 print("Error Occured while extracting using Gemini")
             #     dict={}
@@ -55,6 +56,9 @@ def gemini_summarize(textdata):
             #         df.drop(column,axis=1)
             #     df =df.rename(columns={column:matches})
             # df = df.groupby(level=0, axis=1).apply(lambda x: x.apply(sjoin, axis=1))
-            return response.text
-            break
+    return response.text
+            # break
                 
+from pdftools import read_pdf
+text = read_pdf(r"C:\Users\atuls\Downloads\Documents\1706.03762.pdf")
+print(gemini_summarize(text))
