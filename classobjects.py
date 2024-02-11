@@ -2,12 +2,12 @@ from pydantic import BaseModel
 from typing import Optional, ClassVar
 
 class PDF(BaseModel):
-    textdata: Optional[str]
-    title: Optional[str]
-    author: Optional[str]
+    textdata: Optional[str] = None
+    title: Optional[str] = None
+    author: Optional[str] = None
 
 
-class Presentation(BaseModel):
+class PresentationData(BaseModel):
     title :Optional[str] = None
     author: Optional[str] = None
     # abstract = Optional[str]

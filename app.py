@@ -1,76 +1,48 @@
 from fastapi import FastAPI, UploadFile, File
-from transformers import pipeline
 import pdftitle, pdfplumber
 from bs4 import BeautifulSoup
-from classobjects import PDF, Presentation, TextSummaryRequest, TextSummaryResponse
+from classobjects import PDF, PresentationData, TextSummaryRequest, TextSummaryResponse
 from pdftools import read_pdf, read_pdf_from_url, clean_text
 from gemini import gemini_summarize
 import requests
 import pandas as pd
 import difflib
+from fastapi import HTTPException
+from presentify_model import summarize
+from pptx import Presentation
+from pptx.util import Inches
+from pptxtools import *
 
 
 
-
-pdf = PDF(textdata=None, title=None, author=None)
-presentation = Presentation(title=None, author=None,
+pdf = PDF(textdata=None)
+presentation = PresentationData(title=None, author=None,
                              abstract=None, introduction=None, literature_review=None, 
                              methodology=None, results=None, conclusions=None)
-model = "atulxop/presentify_finetunedt5"
-summarizer = pipeline("summarization",model=model)
 
 
-# pdf_path = r"C:\Users\atuls\OneDrive\Desktop\stuff\Presentify\Presentify\pdfs\A deep implicitexplicit minimizing movement method for option pricing in jumpdiffusion models.pdf"
+
 
 app = FastAPI()
-@app.post("/summarize", response_model=TextSummaryResponse)
-async def summarize_text(request: TextSummaryRequest):
-    text = request.text
-    summary_text = summarizer(text, max_length=100, min_length=30)[0]["summary_text"]
-    return TextSummaryResponse(summary=summary_text)
 
-# extract title, author, textdata from pdf
+MAX_FILE_SIZE = 1024 * 1024 * 12  # 12MB 
 @app.post('/extract-text')
 async def extract_texts(file: UploadFile = File(...)):
+    if file.size > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File is too large")
     pdf_bytes = await file.read()
 
     # Optionally save the PDF temporarily
     with open('temp_pdf.pdf', 'wb') as f:
         f.write(pdf_bytes)
 
-    extracted_text = clean_text(read_pdf('temp_pdf.pdf'))  # Replace with your program's function
+    pdf.textdata = clean_text(read_pdf('temp_pdf.pdf'))  # Replace with your program's function
     pdf_title = pdftitle.get_title_from_file('temp_pdf.pdf')
     author = pdfplumber.open('temp_pdf.pdf').metadata['Author']
-    pdf.author = author
-    pdf.textdata = extracted_text
-    pdf.title = pdf_title
+    presentation.author = author
+    presentation.title = pdf_title
+    return {'title':presentation.title,'textdata':pdf.textdata}
 
-    df = gemini_summarize(pdf.textdata)
-    try:
-        presentation.title = pdf.title
-        presentation.author = pdf.author
-        presentation.introduction = df['introduction'][0]
-        presentation.literature_review = df['literature review'][0]
-        presentation.methodology = df['methodology'][0]
-        presentation.results = df['results'][0]
-        presentation.conclusions = df['conclusion'][0]
-    except:
-        return {'error':'couldnt extract data'}
-        
-    return {'title': pdf.title, 'author': pdf.author,
-            'introduction':presentation.introduction,
-            'literature_review':presentation.literature_review,
-            'methodology':presentation.methodology,
-            'results':presentation.results,
-            'conclusions':presentation.conclusions
-            }
-
-
-@app.post("/create-presentation")
-def create_presentation():
-   presentation['title'] = pdf.title
-   presentation['author'] = pdf.author
-   return presentation
 
 @app.post("/get_data_from_url")
 async def get_data_fromI_url(arxiv_url: str):
@@ -81,63 +53,89 @@ async def get_data_fromI_url(arxiv_url: str):
     presentation.title =  soup.find('h1', class_='title mathjax').text
     presentation.author = soup.find('div', class_='authors').text
     pdf_link = arxiv_url.replace('abs', 'pdf')
-    textdata = clean_text(read_pdf_from_url(pdf_link))
-    presentation.title.replace('Title:','')
-    presentation.author.replace('Authors:','')
+    pdf.textdata = clean_text(read_pdf_from_url(pdf_link))
+    presentation.title = presentation.title.replace('Title:','')
+    presentation.author = presentation.author.replace('Authors:','')
+    return{'title':presentation.title,'author':presentation.author,'textdata':pdf.textdata}
     
-    df = gemini_summarize(textdata)
+   
+@app.get('/get-section-data')
+def get_section_data():
+    text = pdf.textdata
+    gemini_data = PresentationData()
     try:
-        presentation.introduction = df['introduction'][0]
-        presentation.literature_review = df['literature review'][0]
-        presentation.methodology = df['methodology'][0]
-        presentation.results = df['results'][0]
-        presentation.conclusions = df['conclusion'][0]
+        gemini_data = gemini_summarize(text)
+        presentation.introduction = gemini_data.introduction
+        presentation.literature_review = gemini_data.literature_review
+        presentation.methodology = gemini_data.methodology
+        presentation.results = gemini_data.results
+        presentation.conclusions = gemini_data.conclusions
     except:
         return {'error':'couldnt extract data'}
         
     return {'title': presentation.title, 'author': presentation.author,
-            'introduction':presentation.introduction,
-            'literature_review':presentation.literature_review,
-            'methodology':presentation.methodology,
-            'results':presentation.results,
-            'conclusions':presentation.conclusions
+            'introduction':gemini_data.introduction,
+            'literature_review':gemini_data.literature_review,
+            'methodology':gemini_data.methodology,
+            'results':gemini_data.results,
+            'conclusions':gemini_data.conclusions
             }
-
-MAX_FILE_SIZE = 1024 * 1024 * 12  # 12MB 
-@app.post('/bidhan')
-async def bidhan(file: UploadFile = File(...)):
-    if file.size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File is too large")
-    pdf_bytes = await file.read()
-
-    # Optionally save the PDF temporarily
-    with open('temp_pdf.pdf', 'wb') as f:
-        f.write(pdf_bytes)
-
-    extracted_text = clean_text(read_pdf('temp_pdf.pdf'))  # Replace with your program's function
-    pdf_title = pdftitle.get_title_from_file('temp_pdf.pdf')
-    author = pdfplumber.open('temp_pdf.pdf').metadata['Author']
-    text = gemini_summarize(extracted_text)
-    return text
-    # try:
-    #     presentation.title = pdf_title
-    #     presentation.author = author
-    #     presentation.introduction = df['introduction'][0]
-    #     presentation.literature_review = df['literature review'][0]
-    #     presentation.methodology = df['methodology'][0]
-    #     presentation.results = df['results'][0]
-    #     presentation.conclusions = df['conclusion'][0]
-    # except:
-    #     return {'error':'couldnt extract data'}
-        
-    # return {'title': presentation.title, 'author': presentation.author,
-    #         'introduction':presentation.introduction,
-    #         'literature_review':presentation.literature_review,
-    #         'methodology':presentation.methodology,
-    #         'results':presentation.results,
-    #         'conclusions':presentation.conclusions
-    #         }
     
+data = PresentationData(title=None, author=None,
+                             abstract=None, introduction=None, literature_review=None, 
+                             methodology=None, datas=None, conclusions=None)
 
 
+title_list = ['Introduction','Literature Review','Methodology','Results','Conclusion']
+@app.get('/generate_slide')
+def predict():
+    data = presentation
+    data_dict = {'Introduction':data.introduction,
+             'Literature Review':data.literature_review, 
+             'Methodology':data.methodology, 
+             'Results':data.results, 
+             'Conclusion':data.conclusions}
+    prs = Presentation()
+    title_slide_layout = prs.slide_layouts[0]
+    bullet_slide_layout = prs.slide_layouts[1]
 
+    #addding page 1
+    slide1 = add_slide(prs, title_slide_layout)
+    slide1.placeholders[0].text = data.title
+    slide1.placeholders[1].text= data.author
+
+    #font style for title
+    customizer_placeholder(slide1,0,'Arial',44,True)
+
+    #font style for author
+    customizer_placeholder(slide1,1,'Arial',22,True)
+
+    #bullet slides
+    for title in title_list:
+        slide2 = add_slide(prs, bullet_slide_layout)
+        slide2.placeholders[0].text = title
+
+        content = data_dict[title]
+        sentences = split_sentences(content)
+        print(sentences)
+
+        slide2.shapes.placeholders[1].text_frame.text = sentences[0]
+        customizer_placeholder(slide2,1,'Arial',28,False)
+
+        for i in range(1,len(sentences)):
+            p = slide2.shapes.placeholders[1].text_frame.add_paragraph()
+            p.text = sentences[i]
+            p.level = 0
+            #font style for bullet
+            customizer_placeholder_paragraphs(slide2,1,i,'Arial',28,False)
+    #font style for title
+    customizer_placeholder(slide2,0,'Arial',36,True)
+    prs.save(f'slides/{data.title}.pptx')
+    print('slide successfully created')
+    return {'title': data.title, 'author': data.author,
+            'introduction':data.introduction,
+            'literature_review':data.literature_review,
+            'methodology':data.methodology,
+            'results':data.results,
+            'conclusions':data.conclusions,
+            }
