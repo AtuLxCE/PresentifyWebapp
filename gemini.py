@@ -10,7 +10,9 @@ def find_match(column_name):
 def sjoin(x): return ';'.join(x[x.notnull()].astype(str))
 
 def gemini_summarize(textdata):
-    API_KEY = 'AIzaSyAHF_1xEzErOfxprszDp--EgihW17i5ZMw' #add key here
+    API_KEY = os.environ.get("GOOGLE_API_KEY")
+    if not API_KEY:
+        raise ValueError("Set GOOGLE_API_KEY before using Gemini section extraction.")
     genai.configure(api_key= API_KEY)
 
     model = genai.GenerativeModel('gemini-pro')
